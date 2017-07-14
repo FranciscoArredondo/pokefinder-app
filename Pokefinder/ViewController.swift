@@ -8,6 +8,7 @@
 
 import UIKit
 import MapKit
+import FirebaseDatabase
 
 class ViewController: UIViewController, MKMapViewDelegate, CLLocationManagerDelegate {
 
@@ -15,12 +16,18 @@ class ViewController: UIViewController, MKMapViewDelegate, CLLocationManagerDele
     
     let locationManager = CLLocationManager()
     var mapHasCenteredOnce = false
+    var geoFire: GeoFire!
     
     override func viewDidLoad() {
         
         super.viewDidLoad()
         mapView.delegate = self
         mapView.userTrackingMode = MKUserTrackingMode.follow
+        
+        
+        var geoFireRef: DatabaseReference
+        geoFireRef = Database.database().reference()
+        geoFire = GeoFire(firebaseRef: geoFireRef)
         
     }
     
@@ -72,14 +79,34 @@ class ViewController: UIViewController, MKMapViewDelegate, CLLocationManagerDele
         return annotationView
     }
     
-
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
+    func createSighting(forLocation location: CLLocation, withPokemon pokeId: Int) {
+        
+        geoFire.setLocation(location, forKey: "\(pokeId)")
+    }
+    
+    func showSightingsOnMap(location: CLLocation) {
+        
+        let circleQuery = geoFire.query(at: location, withRadius: 2.5)
+        
+        _ = circleQuery?.observe(GFEventType.keyEntered, with: { (key, location) in
+            
+            if let key = key , let location = location {
+                let anno = PokeAnnotation(coordinate: location.coordinate, pokemonNumber: Int(key)!)
+                
+                self.mapView.addAnnotation(anno)
+            }
+            
+        })
     }
     
     //MARK - Actions
     @IBAction func spotRandomPokemon(_ sender: UIButton) {
+        
+        let loc = CLLocation(latitude: mapView.centerCoordinate.latitude, longitude: mapView.centerCoordinate.longitude)
+        
+        let rand = arc4random_uniform(150) + 1
+        createSighting(forLocation: loc, withPokemon: Int(rand))
+        
     }
 
 }
